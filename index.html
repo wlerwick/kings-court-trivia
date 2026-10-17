@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>King's Court Trivia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: host console. Question card + per-player scoring on the left, standings, court and log on the right; stacks on phones. */
+:root{
+  --bg:#f5f2f7;--surface:#ffffff;--surface-2:#efe9f3;--line:#ddd3e4;--fg:#22192b;--muted:#6b5e77;
+  --gold:#8f650a;--gold-soft:#f6eacb;--good:#1d7f4c;--good-soft:#dcf0e4;--bad:#bb3a32;--bad-soft:#f7dfdc;
+  --display:"Cinzel",Georgia,"Times New Roman",serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15111b;--surface:#201927;--surface-2:#2a2133;--line:#3b3046;--fg:#efe8f4;--muted:#a698b3;
+  --gold:#e3b54d;--gold-soft:#3a2f18;--good:#5fc28c;--good-soft:#193126;--bad:#ef7d74;--bad-soft:#3b1f22;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15111b;--surface:#201927;--surface-2:#2a2133;--line:#3b3046;--fg:#efe8f4;--muted:#a698b3;
+  --gold:#e3b54d;--gold-soft:#3a2f18;--good:#5fc28c;--good-soft:#193126;--bad:#ef7d74;--bad-soft:#3b1f22;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:22px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:20px}
+h1,h2{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.02em}
+h1{font-size:clamp(26px,4vw,36px);color:var(--gold)}
+h2{font-size:15px;letter-spacing:.08em;text-transform:uppercase}
+.sub{color:var(--muted);margin:4px 0 0;max-width:70ch}
+.sub b{color:var(--fg);font-weight:600}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+@media (max-width:880px){.main{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:20px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:14px;min-width:0}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.label{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--surface-2);border-radius:7px;padding:7px 12px;font-weight:500;line-height:1.2}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+select,input[type=text],input[type=number]{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px 10px;min-width:0}
+.btn-quiet{background:transparent}
+.btn-danger{color:var(--bad)}
+.btn-danger.armed{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+
+/* Question card */
+.qcontrols{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.field{display:grid;gap:4px;min-width:0}
+.field select{min-width:150px}
+.field input{width:96px}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.qpill{width:36px;height:36px;padding:0;border-radius:50%;font-family:var(--mono);font-size:13px;position:relative}
+.qpill.done{border-color:var(--gold);color:var(--gold)}
+.qpill.active{background:var(--gold);border-color:var(--gold);color:var(--surface);font-weight:600}
+.qtext{font-size:clamp(19px,2.4vw,24px);font-weight:500;line-height:1.35;margin:0;text-wrap:pretty}
+.qmeta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.worth{background:var(--gold-soft);color:var(--gold);border-radius:999px;padding:3px 10px;font-weight:600;font-family:var(--mono)}
+.answer{border-top:1px dashed var(--line);padding-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.answer strong{font-size:18px}
+.nav{display:flex;gap:8px}
+
+/* Player scoring rows */
+.rules{font-size:13px;color:var(--muted);margin:0}
+.rules b{color:var(--fg)}
+.prows{display:grid;gap:8px}
+.prow{display:grid;grid-template-columns:minmax(120px,1fr) auto auto;gap:10px 14px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface)}
+.prow.gambling{border-color:var(--gold);background:linear-gradient(0deg,var(--gold-soft),var(--gold-soft))}
+@media (max-width:620px){.prow{grid-template-columns:minmax(0,1fr) auto}.marks{grid-column:1 / -1}}
+.pname{display:grid;min-width:0}
+.pname .nm{font-weight:600;overflow-wrap:anywhere}
+.pname .pscore{font-size:12px;color:var(--muted)}
+.gamble{display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.toggle[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--surface)}
+.wager{width:84px}
+.ghint{font-size:12px;color:var(--muted);width:100%;text-align:right}
+.ghint.err{color:var(--bad)}
+.marks{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.mk{display:inline-flex;align-items:center;gap:6px}
+.mk svg{width:14px;height:14px}
+.mk.right.on{background:var(--good);border-color:var(--good);color:var(--surface)}
+.mk.wrong.on{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.delta{min-width:58px;text-align:right;font-family:var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
+.delta.pos{color:var(--good)} .delta.neg{color:var(--bad)} .delta.zero{color:var(--muted)}
+
+/* Standings */
+.board{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.board li{display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 10px;border-radius:8px;background:var(--surface-2)}
+.board li.lead{background:var(--gold-soft)}
+.rank{font-family:var(--mono);color:var(--muted);text-align:center}
+.lead .rank{color:var(--gold)}
+.lead .rank svg{width:20px;height:20px;display:block;margin:auto}
+.bname{min-width:0;overflow-wrap:anywhere;font-weight:500;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.title{font-family:var(--display);font-size:11px;letter-spacing:.06em;color:var(--gold);font-weight:700}
+.title.low{color:var(--muted)}
+.bscore{font-family:var(--mono);font-weight:600;font-size:17px;font-variant-numeric:tabular-nums}
+
+/* Court management */
+.court{display:grid;gap:6px}
+.crow{display:flex;gap:6px}
+.crow input{flex:1}
+.addrow{display:flex;gap:6px}
+.addrow input{flex:1}
+
+/* Log */
+.log{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:280px;overflow:auto;font-size:13px}
+.log li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.log .what{color:var(--muted)}
+.log .what b{color:var(--fg);font-weight:600}
+.empty{color:var(--muted);font-size:13px;margin:0}
+.foot{display:flex;gap:8px;flex-wrap:wrap}
+@media (prefers-reduced-motion:no-preference){button{transition:background-color .12s,border-color .12s,color .12s}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>King's Court Trivia</h1>
+    <p class="sub">Mark each answer as right or wrong. To gamble, tap <b>Double down</b> before marking a player's answer. A right answer earns the question's points plus the wager. A wrong answer loses the wager.</p>
+  </header>
+
+  <div class="main">
+    <div class="col">
+      <section class="panel" aria-label="Current question">
+        <div class="qcontrols">
+          <label class="field"><span class="label">Round</span><select id="roundSel"></select></label>
+          <label class="field"><span class="label">Category</span><select id="catSel"></select></label>
+          <label class="field"><span class="label">Points per question</span><input type="number" id="ptsInput" min="0" step="1" class="num"></label>
+        </div>
+        <div class="pills" id="pills"></div>
+        <div class="qmeta" id="qmeta"></div>
+        <p class="qtext" id="qtext"></p>
+        <div class="answer" id="answer"></div>
+      </section>
+
+      <section class="panel" aria-label="Score this question">
+        <div class="panel-head">
+          <h2>Score this question</h2>
+          <span class="label" id="markedCount"></span>
+        </div>
+        <div class="prows" id="prows"></div>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="panel" aria-label="Standings">
+        <h2>Standings</h2>
+        <ol class="board" id="board"></ol>
+      </section>
+
+      <section class="panel" aria-label="The court">
+        <h2>The Court</h2>
+        <div class="court" id="court"></div>
+        <form class="addrow" id="addForm">
+          <input type="text" id="newPlayer" placeholder="Add a player" maxlength="30" autocomplete="off">
+          <button type="submit">Add</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-label="Score log">
+        <div class="panel-head">
+          <h2>Score Log</h2>
+          <button class="btn-quiet" data-act="undo" id="undoBtn">Undo last</button>
+        </div>
+        <ol class="log" id="log"></ol>
+        <div class="foot">
+          <button class="btn-danger" data-act="reset" id="resetBtn">Reset scores</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROUNDS = [
+ {name:`Round 1`, cats:[
+  {name:`Medieval History`, qs:[
+   [`Which 1066 battle saw William the Conqueror defeat King Harold II?`,`Hastings`],
+   [`Which English king sealed the Magna Carta in 1215?`,`King John`],
+   [`At which 1415 battle did English longbowmen beat a much larger French force?`,`Agincourt`],
+   [`Which city fell to the Ottomans in 1453?`,`Constantinople`],
+   [`How long did the "Hundred Years' War" actually last?`,`116 years (1337-1453)`],
+   [`Which two houses fought the Wars of the Roses?`,`Lancaster and York`]]},
+  {name:`2000s Sports`, qs:[
+   [`Which team broke the "Curse of the Bambino" in 2004?`,`Boston Red Sox`],
+   [`Which team drafted LeBron James first overall in 2003?`,`Cleveland Cavaliers`],
+   [`Which team went 16-0 in the 2007 regular season but lost the Super Bowl?`,`New England Patriots (lost to the Giants)`],
+   [`Which golfer won the 2008 U.S. Open playing on a broken leg?`,`Tiger Woods`],
+   [`Who won the 2006 World Cup final on penalties?`,`Italy (over France)`],
+   [`In the 2005 Champions League final, which team came back from 3-0 down at halftime?`,`Liverpool (vs. AC Milan)`]]},
+  {name:`Modern War`, qs:[
+   [`Which Iraqi leader's forces invaded Kuwait in 1990, sparking the Gulf War?`,`Saddam Hussein`],
+   [`In what year did the U.S. launch strikes on Afghanistan after 9/11?`,`2001`],
+   [`In which Pakistani city was Osama bin Laden killed in 2011?`,`Abbottabad`],
+   [`In what year did the U.S. complete its withdrawal from Afghanistan?`,`2021`],
+   [`Which Ukrainian port city was besieged for months before falling to Russia in 2022?`,`Mariupol`]]},
+  {name:`Pop Culture`, qs:[
+   [`Which 2019 film was the first non-English-language Best Picture winner?`,`Parasite`],
+   [`What was the nickname for the July 2023 Barbie and Oppenheimer double feature?`,`Barbenheimer`],
+   [`Which tour was the first to gross over $1 billion?`,`Taylor Swift's Eras Tour`],
+   [`Who plays Wednesday in Netflix's "Wednesday"?`,`Jenna Ortega`],
+   [`What is the girl group called in "K-Pop Demon Hunters"?`,`HUNTR/X`],
+   [`Which actor played Walter White in "Breaking Bad"?`,`Bryan Cranston`]]}
+ ]},
+ {name:`Round 2`, cats:[
+  {name:`Medieval History`, qs:[
+   [`Which dynasty began with Henry II in 1154?`,`Plantagenet`],
+   [`Who was the Archbishop of Canterbury murdered in his cathedral in 1170?`,`Thomas Becket`],
+   [`Which pope called for the First Crusade in 1095?`,`Urban II`],
+   [`Which Muslim leader recaptured Jerusalem in 1187?`,`Saladin`],
+   [`Which Holy Roman Emperor stood in the snow at Canossa in 1077 to seek the pope's forgiveness?`,`Henry IV`],
+   [`Who commissioned the Domesday Book in 1086?`,`William the Conqueror`],
+   [`Which Norse explorer is credited with reaching North America around 1000 AD?`,`Leif Erikson`]]},
+  {name:`2000s Sports`, qs:[
+   [`Which team beat the heavily favored Lakers in the 2004 NBA Finals?`,`Detroit Pistons`],
+   [`How many home runs did Barry Bonds hit in 2001?`,`73`],
+   [`Who beat Federer in the 2008 Wimbledon final, which ended in near darkness?`,`Rafael Nadal`],
+   [`Which country won Euro 2008, starting a run of three straight major titles?`,`Spain`],
+   [`Which team won the 2005 World Series, its first title since 1917?`,`Chicago White Sox`],
+   [`Which two countries co-hosted the 2002 World Cup?`,`Japan and South Korea`],
+   [`How many gold medals did Michael Phelps win at Beijing 2008?`,`Eight`]]},
+  {name:`Modern War`, qs:[
+   [`Which 1982 war was fought over islands in the South Atlantic?`,`Falklands War (UK vs. Argentina)`],
+   [`In what year did Operation Desert Storm begin?`,`1991`],
+   [`What was the code name for the 2001 U.S. invasion of Afghanistan?`,`Operation Enduring Freedom`],
+   [`Which territory did Russia annex from Ukraine in 2014?`,`Crimea`],
+   [`Which 2004 Iraq battle saw the heaviest urban combat U.S. Marines had faced since Hue City in Vietnam?`,`Second Battle of Fallujah`],
+   [`What was the NATO-led force in Afghanistan called, which ended its combat mission in 2014?`,`ISAF (International Security Assistance Force)`]]},
+  {name:`Pop Culture`, qs:[
+   [`Which actor won the Oscar for playing the Joker in the 2019 film?`,`Joaquin Phoenix`],
+   [`What is the name of the town in "Stranger Things"?`,`Hawkins, Indiana`],
+   [`Which HBO drama follows the Roy family and their media empire?`,`Succession`],
+   [`Which Beyoncé album came out in 2022?`,`Renaissance`],
+   [`Which 1997 film won 11 Oscars, tying the record?`,`Titanic`],
+   [`What is the best-selling video game of all time?`,`Minecraft`],
+   [`What app did TikTok absorb in 2018?`,`Musical.ly`]]}
+ ]},
+ {name:`Round 3 (Harder)`, cats:[
+  {name:`Medieval History`, qs:[
+   [`Which battle did Harold Godwinson win just days before Hastings?`,`Stamford Bridge (vs. Harald Hardrada)`],
+   [`Which 1302 battle, the "Battle of the Golden Spurs," saw Flemish townsmen beat French knights?`,`Courtrai`],
+   [`Which 1420 treaty named Henry V heir to the French throne?`,`Treaty of Troyes`],
+   [`Which emperor died defending Constantinople in 1453?`,`Constantine XI`],
+   [`Which 1410 battle saw Poland-Lithuania crush the Teutonic Knights?`,`Grunwald (Tannenberg)`],
+   [`Which English king won at Crécy in 1346?`,`Edward III`],
+   [`Which Mongol ruler founded the Yuan dynasty in China?`,`Kublai Khan`]]},
+  {name:`2000s Sports`, qs:[
+   [`Who did the Lakers sweep in the 2002 NBA Finals?`,`New Jersey Nets`],
+   [`Whose extra-time drop goal won the 2003 Rugby World Cup for England?`,`Jonny Wilkinson`],
+   [`Which team won the 2004 Stanley Cup?`,`Tampa Bay Lightning`],
+   [`Which team beat the Yankees in Game 7 of the 2001 World Series on a walk-off hit?`,`Arizona Diamondbacks`],
+   [`Which distance runner won 10,000m gold at both the 2004 and 2008 Olympics?`,`Kenenisa Bekele`],
+   [`Which country ended a 50-year men's Olympic hockey gold drought in 2002?`,`Canada`],
+   [`Which huge underdog won Euro 2004?`,`Greece`]]},
+  {name:`Modern War`, qs:[
+   [`What was NATO's 1999 air campaign over Kosovo called?`,`Operation Allied Force`],
+   [`Which general led U.S. Central Command during the 2003 Iraq invasion?`,`Tommy Franks`],
+   [`Which 1993 battle inspired "Black Hawk Down"?`,`Battle of Mogadishu`],
+   [`Which 2008 conflict pitted Russia against Georgia over South Ossetia?`,`Russo-Georgian War (the "Five-Day War")`],
+   [`In what year did Soviet forces finish withdrawing from Afghanistan?`,`1989`],
+   [`Which Iraqi city did ISIS capture in June 2014?`,`Mosul`],
+   [`Which general was associated with the 2007 "surge" in Iraq?`,`David Petraeus`]]},
+  {name:`Pop Culture`, qs:[
+   [`Which band released "Random Access Memories" in 2013?`,`Daft Punk`],
+   [`Which singer's alter ego is "Sasha Fierce"?`,`Beyoncé`],
+   [`In which video game is the underwater city of Rapture?`,`BioShock`],
+   [`Who won the first season of "American Idol"?`,`Kelly Clarkson`],
+   [`Who created HBO's "Game of Thrones"?`,`David Benioff and D.B. Weiss`],
+   [`What number is Seong Gi-hun in "Squid Game"?`,`456`],
+   [`Which director made "Inception," "Interstellar" and "Oppenheimer"?`,`Christopher Nolan`]]},
+  {name:`Horror & Halloween`, qs:[
+   [`Which 1978 film introduced Michael Myers?`,`Halloween`],
+   [`In the film "The Shining," which hotel room number is off-limits?`,`237`],
+   [`Who wrote "Dracula" in 1897?`,`Bram Stoker`],
+   [`In what year did the Village Halloween Parade start?`,`1974`],
+   [`What's the subtitle of "Frankenstein"?`,`The Modern Prometheus`],
+   [`Which Celtic festival is Halloween's ancestor?`,`Samhain`],
+   [`Who plays Sidney Prescott in "Scream"?`,`Neve Campbell`],
+   [`Which Poe poem has a bird repeating "Nevermore"?`,`The Raven`]]}
+ ]}
+];
+
+const STORE = 'kings-court-trivia-v2';
+const CROWN = '<svg viewBox="0 0 24 24" aria-label="Leader" fill="currentColor"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8z"/></svg>';
+const CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M3 8.5l3.2 3L13 4.5"/></svg>';
+const CROSS = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+
+let S;
+let armed = {};
+
+function fresh(){
+  return {players:[1,2,3,4].map(n=>({id:'p'+n,name:'Player '+n})), nextId:5, seq:1,
+          log:[], cur:{r:0,c:0,q:0}, pts:2, wagers:{}, reveal:false};
+}
+function load(){ try{ const d = JSON.parse(localStorage.getItem(STORE)); if(d && Array.isArray(d.players) && Array.isArray(d.log)) return d; }catch(e){} return null; }
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){} }
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => n>0 ? '+'+n : n<0 ? '−'+Math.abs(n) : '0';
+const qkey = (c=S.cur) => c.r+'.'+c.c+'.'+c.q;
+const curPts = () => Math.max(0, parseInt(S.pts,10) || 0);
+const score = (pid, exclude) => S.log.reduce((t,e)=> e.pid===pid && e.key!==exclude ? t+e.delta : t, 0);
+const entryFor = (pid, key) => S.log.find(e => e.pid===pid && e.key===key);
+const nameOf = pid => (S.players.find(p=>p.id===pid)||{name:'Removed player'}).name;
+
+function render(){ renderQuestion(); renderPlayers(); renderBoard(); renderCourt(); renderLog(); save(); }
+
+function renderQuestion(){
+  const R = ROUNDS[S.cur.r], C = R.cats[S.cur.c], Q = C.qs[S.cur.q];
+  $('roundSel').innerHTML = ROUNDS.map((r,i)=>`<option value="${i}" ${i===S.cur.r?'selected':''}>${esc(r.name)}</option>`).join('');
+  $('catSel').innerHTML = R.cats.map((c,i)=>`<option value="${i}" ${i===S.cur.c?'selected':''}>${esc(c.name)}</option>`).join('');
+  $('ptsInput').value = S.pts;
+  $('pills').innerHTML = C.qs.map((_,i)=>{
+    const k = S.cur.r+'.'+S.cur.c+'.'+i, done = S.log.some(e=>e.key===k);
+    return `<button class="qpill ${i===S.cur.q?'active':''} ${done?'done':''}" data-act="goq" data-q="${i}" aria-label="Question ${i+1}${done?', scored':''}">${i+1}</button>`;
+  }).join('');
+  $('qmeta').innerHTML = `<span class="worth">${curPts()} pts</span><span>${esc(R.name)} · ${esc(C.name)} · Question ${S.cur.q+1} of ${C.qs.length}</span>`;
+  $('qtext').textContent = Q[0];
+  const atStart = S.cur.r===0 && S.cur.c===0 && S.cur.q===0;
+  const lastR = ROUNDS.length-1, lastC = ROUNDS[lastR].cats.length-1;
+  const atEnd = S.cur.r===lastR && S.cur.c===lastC && S.cur.q===ROUNDS[lastR].cats[lastC].qs.length-1;
+  $('answer').innerHTML = (S.reveal
+      ? `<div><div class="label">Answer</div><strong>${esc(Q[1])}</strong></div>`
+      : `<button data-act="reveal">Show answer</button>`)
+    + `<div class="nav"><button data-act="prev" ${atStart?'disabled':''}>Previous</button><button data-act="next" ${atEnd?'disabled':''}>Next question</button></div>`;
+}
+
+function hintFor(p){
+  const w = S.wagers[p.id], max = score(p.id, qkey());
+  if(!w || !w.on) return '';
+  const amt = parseInt(w.amt,10);
+  if(!amt || amt<1 || amt>max) return {err:true, text:`Wager 1 to ${max}`};
+  return {err:false, text:`Right: ${fmt(curPts()+amt)} · Wrong: ${fmt(-amt)}`};
+}
+
+function renderPlayers(){
+  const key = qkey();
+  let marked = 0;
+  $('prows').innerHTML = S.players.length ? S.players.map(p=>{
+    const e = entryFor(p.id, key); if(e) marked++;
+    const bank = score(p.id, key);
+    const w = S.wagers[p.id] || {on:false, amt:''};
+    const on = w.on && bank>0;
+    const h = hintFor(p);
+    const dcls = e ? (e.delta>0?'pos':e.delta<0?'neg':'zero') : '';
+    return `<div class="prow ${on?'gambling':''}" data-pid="${p.id}">
+      <div class="pname"><span class="nm">${esc(p.name)}</span><span class="pscore">Score <span class="num">${score(p.id)}</span></span></div>
+      <div class="gamble">
+        <button class="toggle" data-act="gamble" aria-pressed="${on}" ${bank>0?'':'disabled title="Needs points to wager"'}>Double down</button>
+        <input type="number" class="wager num" id="w-${p.id}" data-pid="${p.id}" min="1" max="${bank}" placeholder="Wager" value="${esc(w.amt)}" ${on?'':'hidden'} aria-label="Wager for ${esc(p.name)}">
+        <button data-act="allin" ${on?'':'hidden'}>All in</button>
+        <span class="ghint ${h&&h.err?'err':''}" ${on?'':'hidden'}>${h?esc(h.text):''}</span>
+      </div>
+      <div class="marks">
+        <button class="mk right ${e&&e.result==='right'?'on':''}" data-act="right" aria-pressed="${!!(e&&e.result==='right')}">${CHECK}Right</button>
+        <button class="mk wrong ${e&&e.result==='wrong'?'on':''}" data-act="wrong" aria-pressed="${!!(e&&e.result==='wrong')}">${CROSS}Wrong</button>
+        <span class="delta ${dcls}">${e?fmt(e.delta):''}</span>
+      </div>
+    </div>`;
+  }).join('') : `<p class="empty">Add players under The Court to start scoring.</p>`;
+  $('markedCount').textContent = S.players.length ? `${marked} of ${S.players.length} marked` : '';
+}
+
+function renderBoard(){
+  const rows = S.players.map(p=>({p, s:score(p.id)})).sort((a,b)=>b.s-a.s);
+  const n = rows.length;
+  $('board').innerHTML = n ? rows.map((r,i)=>{
+    const lead = i===0 && r.s>0 && (n===1 || rows[1].s<r.s);
+    let title = '';
+    if(lead) title = '<span class="title">King</span>';
+    else if(i===n-1 && n>=3 && r.s<rows[0].s) title = '<span class="title low">Peasant</span>';
+    return `<li class="${lead?'lead':''}"><span class="rank">${lead?CROWN:i+1}</span><span class="bname">${esc(r.p.name)}${title}</span><span class="bscore">${r.s}</span></li>`;
+  }).join('') : `<li><span></span><span class="empty">No players yet</span><span></span></li>`;
+}
+
+function renderCourt(){
+  $('court').innerHTML = S.players.map(p=>`<div class="crow">
+    <input type="text" id="name-${p.id}" data-pid="${p.id}" class="nameInput" value="${esc(p.name)}" maxlength="30" aria-label="Player name">
+    <button class="btn-danger ${armed['rm-'+p.id]?'armed':''}" data-act="remove" data-pid="${p.id}">${armed['rm-'+p.id]?'Confirm':'Remove'}</button>
+  </div>`).join('');
+}
+
+function renderLog(){
+  const items = S.log.slice().reverse().slice(0,60);
+  $('log').innerHTML = items.length ? items.map(e=>{
+    const [r,c,q] = e.key.split('.').map(Number);
+    const where = `${ROUNDS[r].name.replace(' (Harder)','')} · ${ROUNDS[r].cats[c].name} · Q${q+1}`;
+    return `<li><span class="what"><b>${esc(nameOf(e.pid))}</b> ${e.kind} · ${esc(where)}</span><span class="delta ${e.delta>0?'pos':e.delta<0?'neg':'zero'}">${fmt(e.delta)}</span></li>`;
+  }).join('') : `<li><span class="empty">Scores appear here as you mark answers.</span></li>`;
+  $('undoBtn').disabled = !S.log.length;
+  const rb = $('resetBtn'); rb.classList.toggle('armed', !!armed.reset); rb.textContent = armed.reset ? 'Tap again to reset' : 'Reset scores';
+}
+
+function go(r,c,q){ S.cur = {r,c,q}; S.wagers = {}; S.reveal = false; render(); }
+function step(dir){
+  let {r,c,q} = S.cur;
+  if(dir>0){
+    if(q+1 < ROUNDS[r].cats[c].qs.length) q++;
+    else if(c+1 < ROUNDS[r].cats.length){ c++; q=0; }
+    else if(r+1 < ROUNDS.length){ r++; c=0; q=0; }
+  } else {
+    if(q>0) q--;
+    else if(c>0){ c--; q=ROUNDS[r].cats[c].qs.length-1; }
+    else if(r>0){ r--; c=ROUNDS[r].cats.length-1; q=ROUNDS[r].cats[c].qs.length-1; }
+  }
+  go(r,c,q);
+}
+
+function mark(pid, result){
+  const key = qkey(), existing = entryFor(pid, key);
+  if(existing && existing.result===result){ S.log = S.log.filter(e=>e!==existing); render(); return; }
+  const bank = score(pid, key), w = S.wagers[pid];
+  let delta, kind;
+  if(w && w.on && bank>0){
+    const amt = parseInt(w.amt,10);
+    if(!amt || amt<1 || amt>bank){ const row = document.querySelector(`.prow[data-pid="${pid}"] .ghint`); if(row){ row.textContent = `Enter a wager from 1 to ${bank}`; row.classList.add('err'); } $('w-'+pid)?.focus(); return; }
+    delta = result==='right' ? curPts()+amt : -amt;
+    kind = result==='right' ? `won a ${amt}-pt gamble` : `lost a ${amt}-pt gamble`;
+  } else {
+    delta = result==='right' ? curPts() : 0;
+    kind = result==='right' ? 'got it right' : 'got it wrong';
+  }
+  S.log = S.log.filter(e=>e!==existing);
+  S.log.push({id:S.seq++, pid, key, result, delta, kind});
+  render();
+}
+
+function disarmLater(k){ setTimeout(()=>{ if(armed[k]){ delete armed[k]; render(); } }, 3000); }
+
+document.addEventListener('click', ev=>{
+  const b = ev.target.closest('[data-act]'); if(!b || b.disabled) return;
+  const act = b.dataset.act, pid = b.dataset.pid || b.closest('[data-pid]')?.dataset.pid;
+  switch(act){
+    case 'goq': go(S.cur.r, S.cur.c, +b.dataset.q); break;
+    case 'prev': step(-1); break;
+    case 'next': step(1); break;
+    case 'reveal': S.reveal = true; render(); break;
+    case 'right': case 'wrong': mark(pid, act); break;
+    case 'gamble': {
+      const w = S.wagers[pid] || {on:false, amt:''}; w.on = !w.on; S.wagers[pid] = w; render();
+      if(w.on) $('w-'+pid)?.focus(); break;
+    }
+    case 'allin': { const w = S.wagers[pid]; w.amt = String(score(pid, qkey())); render(); break; }
+    case 'undo': S.log.pop(); render(); break;
+    case 'remove': {
+      const k = 'rm-'+pid;
+      if(armed[k]){ delete armed[k]; S.players = S.players.filter(p=>p.id!==pid); S.log = S.log.filter(e=>e.pid!==pid); delete S.wagers[pid]; render(); }
+      else { armed[k] = true; render(); disarmLater(k); }
+      break;
+    }
+    case 'reset':
+      if(armed.reset){ delete armed.reset; S.log = []; S.wagers = {}; S.reveal = false; S.cur = {r:0,c:0,q:0}; render(); }
+      else { armed.reset = true; render(); disarmLater('reset'); }
+      break;
+  }
+});
+
+document.addEventListener('input', ev=>{
+  const t = ev.target;
+  if(t.classList.contains('wager')){
+    const pid = t.dataset.pid; S.wagers[pid] = Object.assign(S.wagers[pid]||{on:true}, {amt:t.value});
+    const h = hintFor(S.players.find(p=>p.id===pid)), el = t.parentElement.querySelector('.ghint');
+    if(el && h){ el.textContent = h.text; el.classList.toggle('err', h.err); }
+    save();
+  } else if(t.classList.contains('nameInput')){
+    const p = S.players.find(p=>p.id===t.dataset.pid); if(p){ p.name = t.value; save(); }
+  }
+});
+document.addEventListener('change', ev=>{
+  const t = ev.target;
+  if(t.id==='roundSel') go(+t.value, 0, 0);
+  else if(t.id==='catSel') go(S.cur.r, +t.value, 0);
+  else if(t.id==='ptsInput'){ S.pts = Math.max(0, parseInt(t.value,10)||0); render(); }
+  else if(t.classList.contains('nameInput')){
+    const p = S.players.find(p=>p.id===t.dataset.pid); if(p){ p.name = t.value.trim() || p.name || 'Player'; render(); }
+  }
+});
+$('addForm').addEventListener('submit', ev=>{
+  ev.preventDefault();
+  const v = $('newPlayer').value.trim(); if(!v) return;
+  S.players.push({id:'p'+(S.nextId++), name:v}); $('newPlayer').value = ''; render(); $('newPlayer').focus();
+});
+
+function start(data){
+  S = (data && data.state) || load() || fresh();
+  window.claude?.hot?.snapshot?.(() => ({state:S}));
+  render();
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
